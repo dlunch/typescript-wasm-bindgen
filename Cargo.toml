@@ -9,5 +9,7 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-syn = "^1.0"
-quote = "^1.0"
+syn = { version = "^1.0" }
+quote = { version =" ^1.0" }
+swc_common = { version = "^0.10" }
+swc_ecma_parser = { version = "^0.44" }
