@@ -1,6 +1,6 @@
-use typescript_wasm_bindgen::my_macro;
+use typescript_wasm_bindgen::typescript;
 
 #[test]
 fn test() {
-    assert_eq!(my_macro!("test"), "TEST")
+    assert_eq!(typescript!("tests/test.d.ts"), "TEST")
 }
