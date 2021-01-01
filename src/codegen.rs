@@ -3,7 +3,7 @@ use std::str;
 
 use swc_common::BytePos;
 use swc_ecma_ast::{Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
-use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
+use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -16,9 +16,9 @@ fn to_rust_type(ts_type: &TsType) -> TokenStream {
                     ()
                 }
             }
-            _ => panic!(),
+            _ => panic!(format!("{:?}", ts_type)),
         },
-        _ => panic!(),
+        _ => panic!(format!("{:?}", ts_type)),
     }
 }
 
@@ -57,21 +57,21 @@ fn generate_fn_decl(decl: FnDecl) -> TokenStream {
 fn generate_export_decl(decl: ExportDecl) -> TokenStream {
     match decl.decl {
         Decl::Fn(x) => generate_fn_decl(x),
-        _ => panic!(),
+        _ => panic!(format!("{:?}", decl)),
     }
 }
 
 fn generate_module_decl(decl: ModuleDecl) -> TokenStream {
     match decl {
         ModuleDecl::ExportDecl(x) => generate_export_decl(x),
-        _ => panic!(),
+        _ => panic!(format!("{:?}", decl)),
     }
 }
 
 fn generate_module_item(item: ModuleItem) -> TokenStream {
     match item {
         ModuleItem::ModuleDecl(x) => generate_module_decl(x),
-        _ => panic!(),
+        ModuleItem::Stmt(_) => TokenStream::new(),
     }
 }
 
@@ -81,7 +81,10 @@ pub fn generate_wasm_bindgen_bindings(filename: &str, module_name: &str) -> Toke
 
     let content = str::from_utf8(&file).unwrap();
     let lexer = Lexer::new(
-        Syntax::Typescript(Default::default()),
+        Syntax::Typescript(TsConfig {
+            dynamic_import: true, // TODO tsconfig?
+            ..Default::default()
+        }),
         Default::default(),
         StringInput::new(content, BytePos(0), BytePos(content.len() as u32)),
         None,
