@@ -1,1 +1,1 @@
-export function test(): void;
+export function test_function(): void;

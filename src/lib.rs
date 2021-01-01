@@ -1,34 +1,13 @@
-use std::fs;
-use std::str;
+mod codegen;
 
 use proc_macro::TokenStream;
-use quote::quote;
-use swc_common::BytePos;
-use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
-use syn::{parse_macro_input, LitStr};
+use syn::{parse::Parser, punctuated::Punctuated, LitStr, Token};
 
 #[proc_macro]
 pub fn typescript(input: TokenStream) -> TokenStream {
-    let filename = parse_macro_input!(input as LitStr).value();
+    let parser = Punctuated::<LitStr, Token![,]>::parse_separated_nonempty;
+    let args = parser.parse(input).unwrap();
+    let (filename, module_name) = (&args[0], &args[1]);
 
-    let file_path = std::env::current_dir().unwrap().join(&filename);
-    let file = fs::read(file_path).unwrap();
-
-    let content = str::from_utf8(&file).unwrap();
-    let lexer = Lexer::new(
-        Syntax::Typescript(Default::default()),
-        Default::default(),
-        StringInput::new(content, BytePos(0), BytePos(content.len() as u32)),
-        None,
-    );
-
-    let mut parser = Parser::new_from(lexer);
-    let module = parser.parse_typescript_module().unwrap();
-
-    eprintln!("{:?}", module.body[0]);
-
-    (quote! {
-        "TEST"
-    })
-    .into()
+    codegen::generate_wasm_bindgen_bindings(&filename.value(), &module_name.value()).into()
 }
