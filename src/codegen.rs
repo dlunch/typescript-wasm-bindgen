@@ -1,6 +1,3 @@
-use std::fs;
-use std::str;
-
 use swc_common::BytePos;
 use swc_ecma_ast::{Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
@@ -75,11 +72,7 @@ fn generate_module_item(item: ModuleItem) -> Option<TokenStream> {
     }
 }
 
-pub fn generate_wasm_bindgen_bindings(filename: &str, module_name: &str) -> TokenStream {
-    let file_path = std::env::current_dir().unwrap().join(filename);
-    let file = fs::read(file_path).unwrap();
-
-    let content = str::from_utf8(&file).unwrap();
+pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> TokenStream {
     let lexer = Lexer::new(
         Syntax::Typescript(TsConfig {
             dynamic_import: true, // TODO tsconfig?
