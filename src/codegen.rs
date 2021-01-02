@@ -1,5 +1,5 @@
 use swc_common::BytePos;
-use swc_ecma_ast::{Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
+use swc_ecma_ast::{ClassDecl, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
 use proc_macro2::{Ident, Span, TokenStream};
@@ -41,8 +41,6 @@ fn to_rust_return_type(ts_type: &TsType) -> TokenStream {
 }
 
 fn generate_fn_decl(decl: FnDecl) -> TokenStream {
-    eprintln!("{:?}", decl);
-
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
     let return_type = to_rust_return_type(&decl.function.return_type.unwrap().type_ann);
 
@@ -51,9 +49,20 @@ fn generate_fn_decl(decl: FnDecl) -> TokenStream {
     }
 }
 
+fn generate_class_decl(decl: ClassDecl) -> TokenStream {
+    eprintln!("{:?}", decl);
+
+    let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
+
+    quote! {
+        type #name;
+    }
+}
+
 fn generate_export_decl(decl: ExportDecl) -> TokenStream {
     match decl.decl {
         Decl::Fn(x) => generate_fn_decl(x),
+        Decl::Class(x) => generate_class_decl(x),
         _ => panic!(format!("{:?}", decl)),
     }
 }
@@ -128,6 +137,14 @@ mod tests {
     fn test_function() {
         let ts = "export function test(): void;";
         let expected = quote! { fn test(); };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_class() {
+        let ts = "export class test {};";
+        let expected = quote! { type test; };
 
         assert_codegen_eq!(ts, expected);
     }
