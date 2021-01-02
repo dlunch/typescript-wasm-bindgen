@@ -1,5 +1,5 @@
 use swc_common::BytePos;
-use swc_ecma_ast::{ClassDecl, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
+use swc_ecma_ast::{ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
 use proc_macro2::{Ident, Span, TokenStream};
@@ -49,13 +49,32 @@ fn generate_fn_decl(decl: FnDecl) -> TokenStream {
     }
 }
 
+fn generate_class_member(class_name: &Ident, member: ClassMember) -> Option<TokenStream> {
+    match member {
+        ClassMember::Constructor(_) => Some(quote! {
+            #[wasm_bindgen(constructor)]
+            fn new() -> #class_name;
+        }),
+        _ => panic!(member),
+    }
+}
+
 fn generate_class_decl(decl: ClassDecl) -> TokenStream {
     eprintln!("{:?}", decl);
 
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
 
+    let body = decl
+        .class
+        .body
+        .into_iter()
+        .filter_map(|x| generate_class_member(&name, x))
+        .collect::<TokenStream>();
+
     quote! {
         type #name;
+
+        #body
     }
 }
 
@@ -141,6 +160,21 @@ mod tests {
     fn test_class() {
         let ts = "export class test {};";
         let expected = quote! { type test; };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_class_constructor() {
+        let ts = "export class test {
+            constructor() {}
+        };";
+        let expected = quote! {
+            type test;
+
+            #[wasm_bindgen(constructor)]
+            fn new() -> test;
+        };
 
         assert_codegen_eq!(ts, expected);
     }
