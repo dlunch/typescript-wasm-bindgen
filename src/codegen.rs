@@ -68,10 +68,10 @@ fn generate_module_decl(decl: ModuleDecl) -> TokenStream {
     }
 }
 
-fn generate_module_item(item: ModuleItem) -> TokenStream {
+fn generate_module_item(item: ModuleItem) -> Option<TokenStream> {
     match item {
-        ModuleItem::ModuleDecl(x) => generate_module_decl(x),
-        ModuleItem::Stmt(_) => TokenStream::new(),
+        ModuleItem::ModuleDecl(x) => Some(generate_module_decl(x)),
+        ModuleItem::Stmt(_) => None,
     }
 }
 
@@ -93,7 +93,7 @@ pub fn generate_wasm_bindgen_bindings(filename: &str, module_name: &str) -> Toke
     let mut parser = Parser::new_from(lexer);
     let module = parser.parse_typescript_module().unwrap();
 
-    let definitions = module.body.into_iter().map(generate_module_item).collect::<TokenStream>();
+    let definitions = module.body.into_iter().filter_map(generate_module_item).collect::<TokenStream>();
 
     let result = quote! {
         #[wasm_bindgen(module = #module_name)]
