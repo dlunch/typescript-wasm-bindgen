@@ -99,3 +99,36 @@ pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> Token
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! assert_debug_eq {
+        ($left: ident, $right: ident) => {
+            assert_eq!(format!("{:?}", $left), format!("{:?}", $right))
+        };
+    }
+
+    macro_rules! assert_codegen_eq {
+        ($ts: ident, $expected: ident) => {
+            let expected = quote! {
+                #[wasm_bindgen(module = "test")]
+                extern "C" {
+                    #$expected
+                }
+            };
+            let generated = generate_wasm_bindgen_bindings($ts, "test");
+
+            assert_debug_eq!(generated, expected);
+        };
+    }
+
+    #[test]
+    fn test_function() {
+        let ts = "export function test(): void;";
+        let expected = quote! { fn test(); };
+
+        assert_codegen_eq!(ts, expected);
+    }
+}
