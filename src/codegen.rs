@@ -97,16 +97,12 @@ pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> Token
 
     let definitions = module.body.into_iter().filter_map(generate_module_item).collect::<TokenStream>();
 
-    let result = quote! {
+    quote! {
         #[wasm_bindgen(module = #module_name)]
         extern "C" {
             #definitions
         }
-    };
-
-    eprintln!("{}", result);
-
-    result
+    }
 }
 
 #[cfg(test)]
