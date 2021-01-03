@@ -1,5 +1,7 @@
 use swc_common::BytePos;
-use swc_ecma_ast::{ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, Pat, TsKeywordTypeKind, TsType, TsTypeAnn};
+use swc_ecma_ast::{
+    ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, TsKeywordTypeKind, TsType, TsTypeAnn,
+};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
 use proc_macro2::{Ident, Span, TokenStream};
@@ -46,25 +48,35 @@ fn generate_param(param: &Param) -> TokenStream {
     }
 }
 
-fn generate_params(params: &[Param]) -> impl ToTokens {
-    params.iter().map(generate_param).collect::<Punctuated<TokenStream, Token![,]>>()
+fn generate_params<'a, T: Iterator<Item = &'a Param>>(params: T) -> impl ToTokens {
+    params.map(generate_param).collect::<Punctuated<TokenStream, Token![,]>>()
 }
 
 fn generate_fn_decl(decl: &FnDecl) -> TokenStream {
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
     let return_type = to_rust_return_type(&decl.function.return_type.as_ref().unwrap());
 
-    let params = generate_params(&decl.function.params);
+    let params = generate_params(decl.function.params.iter());
 
     quote! { fn #name(#params) #return_type; }
 }
 
 fn generate_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
     match &member {
-        ClassMember::Constructor(_) => Some(quote! {
-            #[wasm_bindgen(constructor)]
-            fn new() -> #class_name;
-        }),
+        ClassMember::Constructor(x) => {
+            let params = generate_params(x.params.iter().map(|x| {
+                if let ParamOrTsParamProp::Param(x) = x {
+                    x
+                } else {
+                    panic!(format!("{:?}", x))
+                }
+            }));
+
+            Some(quote! {
+                #[wasm_bindgen(constructor)]
+                fn new(#params) -> #class_name;
+            })
+        }
         _ => panic!(format!("{:?}", member)),
     }
 }
@@ -185,13 +197,13 @@ mod tests {
     #[test]
     fn test_class_constructor() {
         let ts = "export class test {
-            constructor() {}
+            constructor(test: string) {}
         };";
         let expected = quote! {
             type test;
 
             #[wasm_bindgen(constructor)]
-            fn new() -> test;
+            fn new(test: &str) -> test;
         };
 
         assert_codegen_eq!(ts, expected);
