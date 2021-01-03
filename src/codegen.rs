@@ -36,7 +36,7 @@ fn to_rust_return_type(ts_type: &TsTypeAnn) -> TokenStream {
     }
 }
 
-fn generate_param(param: &Param) -> TokenStream {
+fn to_rust_param(param: &Param) -> TokenStream {
     match &param.pat {
         Pat::Ident(x) => {
             let name = Ident::new(&x.sym.to_string(), Span::call_site());
@@ -48,23 +48,23 @@ fn generate_param(param: &Param) -> TokenStream {
     }
 }
 
-fn generate_params<'a, T: Iterator<Item = &'a Param>>(params: T) -> impl ToTokens {
-    params.map(generate_param).collect::<Punctuated<TokenStream, Token![,]>>()
+fn to_rust_params<'a, T: Iterator<Item = &'a Param>>(params: T) -> impl ToTokens {
+    params.map(to_rust_param).collect::<Punctuated<TokenStream, Token![,]>>()
 }
 
-fn generate_fn_decl(decl: &FnDecl) -> TokenStream {
+fn to_rust_fn(decl: &FnDecl) -> TokenStream {
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
     let return_type = to_rust_return_type(&decl.function.return_type.as_ref().unwrap());
 
-    let params = generate_params(decl.function.params.iter());
+    let params = to_rust_params(decl.function.params.iter());
 
     quote! { fn #name(#params) #return_type; }
 }
 
-fn generate_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
+fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
     match &member {
         ClassMember::Constructor(x) => {
-            let params = generate_params(x.params.iter().map(|x| {
+            let params = to_rust_params(x.params.iter().map(|x| {
                 if let ParamOrTsParamProp::Param(x) = x {
                     x
                 } else {
@@ -81,7 +81,7 @@ fn generate_class_member(class_name: &Ident, member: &ClassMember) -> Option<Tok
     }
 }
 
-fn generate_class_decl(decl: &ClassDecl) -> TokenStream {
+fn to_rust_class(decl: &ClassDecl) -> TokenStream {
     eprintln!("{:?}", decl);
 
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
@@ -90,7 +90,7 @@ fn generate_class_decl(decl: &ClassDecl) -> TokenStream {
         .class
         .body
         .iter()
-        .filter_map(|x| generate_class_member(&name, x))
+        .filter_map(|x| to_rust_class_member(&name, x))
         .collect::<TokenStream>();
 
     quote! {
@@ -102,8 +102,8 @@ fn generate_class_decl(decl: &ClassDecl) -> TokenStream {
 
 fn generate_export_decl(decl: &ExportDecl) -> TokenStream {
     match &decl.decl {
-        Decl::Fn(x) => generate_fn_decl(x),
-        Decl::Class(x) => generate_class_decl(x),
+        Decl::Fn(x) => to_rust_fn(x),
+        Decl::Class(x) => to_rust_class(x),
         _ => panic!(format!("{:?}", decl)),
     }
 }
