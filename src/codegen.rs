@@ -30,9 +30,7 @@ fn to_rust_return_type(ts_type: &TsTypeAnn) -> TokenStream {
                 quote! { -> #return_type }
             }
         }
-        _ => {
-            quote! { -> #return_type }
-        }
+        _ => quote! { -> #return_type },
     }
 }
 
@@ -58,9 +56,7 @@ fn generate_fn_decl(decl: &FnDecl) -> TokenStream {
 
     let params = generate_params(&decl.function.params);
 
-    quote! {
-        fn #name(#params) #return_type;
-    }
+    quote! { fn #name(#params) #return_type; }
 }
 
 fn generate_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
