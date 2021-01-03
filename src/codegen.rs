@@ -1,51 +1,65 @@
 use swc_common::BytePos;
-use swc_ecma_ast::{ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, TsKeywordTypeKind, TsType};
+use swc_ecma_ast::{ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, Pat, TsKeywordTypeKind, TsType, TsTypeAnn};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
+use syn::{punctuated::Punctuated, Token};
 
-fn to_rust_type(ts_type: &TsType) -> TokenStream {
-    match ts_type {
+fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
+    match &*ts_type.type_ann {
         TsType::TsKeywordType(x) => match x.kind {
-            TsKeywordTypeKind::TsVoidKeyword => {
-                quote! {
-                    ()
-                }
-            }
+            TsKeywordTypeKind::TsVoidKeyword => quote! { () },
+            TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
+            TsKeywordTypeKind::TsStringKeyword => quote! { &str },
+            TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
             _ => panic!(format!("{:?}", ts_type)),
         },
         _ => panic!(format!("{:?}", ts_type)),
     }
 }
 
-fn to_rust_return_type(ts_type: &TsType) -> TokenStream {
+fn to_rust_return_type(ts_type: &TsTypeAnn) -> TokenStream {
     let return_type = to_rust_type(ts_type);
 
-    match ts_type {
+    match &*ts_type.type_ann {
         TsType::TsKeywordType(x) => {
             if x.kind == TsKeywordTypeKind::TsVoidKeyword {
                 TokenStream::new()
             } else {
-                quote! {
-                    -> #return_type
-                }
+                quote! { -> #return_type }
             }
         }
         _ => {
-            quote! {
-                -> #return_type
-            }
+            quote! { -> #return_type }
         }
     }
 }
 
+fn generate_param(param: &Param) -> TokenStream {
+    match &param.pat {
+        Pat::Ident(x) => {
+            let name = Ident::new(&x.sym.to_string(), Span::call_site());
+            let rust_type = to_rust_type(&x.type_ann.as_ref().unwrap());
+
+            quote! { #name: #rust_type }
+        }
+        _ => panic!(format!("{:?}", param)),
+    }
+}
+
+fn generate_params(params: &[Param]) -> impl ToTokens {
+    params.iter().map(generate_param).collect::<Punctuated<TokenStream, Token![,]>>()
+}
+
 fn generate_fn_decl(decl: FnDecl) -> TokenStream {
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
-    let return_type = to_rust_return_type(&decl.function.return_type.unwrap().type_ann);
+    let return_type = to_rust_return_type(&decl.function.return_type.unwrap());
+
+    let params = generate_params(&decl.function.params);
 
     quote! {
-        fn #name() #return_type;
+        fn #name(#params) #return_type;
     }
 }
 
@@ -152,6 +166,14 @@ mod tests {
     fn test_function() {
         let ts = "export function test(): void;";
         let expected = quote! { fn test(); };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_function_params() {
+        let ts = "export function test(a: number, b: boolean, c: string): void;";
+        let expected = quote! { fn test(a: f64, b: bool, c: &str); };
 
         assert_codegen_eq!(ts, expected);
     }
