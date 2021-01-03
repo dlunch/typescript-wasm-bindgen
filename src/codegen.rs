@@ -52,9 +52,9 @@ fn generate_params(params: &[Param]) -> impl ToTokens {
     params.iter().map(generate_param).collect::<Punctuated<TokenStream, Token![,]>>()
 }
 
-fn generate_fn_decl(decl: FnDecl) -> TokenStream {
+fn generate_fn_decl(decl: &FnDecl) -> TokenStream {
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
-    let return_type = to_rust_return_type(&decl.function.return_type.unwrap());
+    let return_type = to_rust_return_type(&decl.function.return_type.as_ref().unwrap());
 
     let params = generate_params(&decl.function.params);
 
@@ -63,17 +63,17 @@ fn generate_fn_decl(decl: FnDecl) -> TokenStream {
     }
 }
 
-fn generate_class_member(class_name: &Ident, member: ClassMember) -> Option<TokenStream> {
-    match member {
+fn generate_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
+    match &member {
         ClassMember::Constructor(_) => Some(quote! {
             #[wasm_bindgen(constructor)]
             fn new() -> #class_name;
         }),
-        _ => panic!(member),
+        _ => panic!(format!("{:?}", member)),
     }
 }
 
-fn generate_class_decl(decl: ClassDecl) -> TokenStream {
+fn generate_class_decl(decl: &ClassDecl) -> TokenStream {
     eprintln!("{:?}", decl);
 
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
@@ -81,7 +81,7 @@ fn generate_class_decl(decl: ClassDecl) -> TokenStream {
     let body = decl
         .class
         .body
-        .into_iter()
+        .iter()
         .filter_map(|x| generate_class_member(&name, x))
         .collect::<TokenStream>();
 
@@ -92,23 +92,23 @@ fn generate_class_decl(decl: ClassDecl) -> TokenStream {
     }
 }
 
-fn generate_export_decl(decl: ExportDecl) -> TokenStream {
-    match decl.decl {
+fn generate_export_decl(decl: &ExportDecl) -> TokenStream {
+    match &decl.decl {
         Decl::Fn(x) => generate_fn_decl(x),
         Decl::Class(x) => generate_class_decl(x),
         _ => panic!(format!("{:?}", decl)),
     }
 }
 
-fn generate_module_decl(decl: ModuleDecl) -> TokenStream {
-    match decl {
+fn generate_module_decl(decl: &ModuleDecl) -> TokenStream {
+    match &decl {
         ModuleDecl::ExportDecl(x) => generate_export_decl(x),
         _ => panic!(format!("{:?}", decl)),
     }
 }
 
-fn generate_module_item(item: ModuleItem) -> Option<TokenStream> {
-    match item {
+fn generate_module_item(item: &ModuleItem) -> Option<TokenStream> {
+    match &item {
         ModuleItem::ModuleDecl(x) => Some(generate_module_decl(x)),
         ModuleItem::Stmt(_) => None,
     }
@@ -128,7 +128,7 @@ pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> Token
     let mut parser = Parser::new_from(lexer);
     let module = parser.parse_typescript_module().unwrap();
 
-    let definitions = module.body.into_iter().filter_map(generate_module_item).collect::<TokenStream>();
+    let definitions = module.body.iter().filter_map(generate_module_item).collect::<TokenStream>();
 
     quote! {
         #[wasm_bindgen(module = #module_name)]
