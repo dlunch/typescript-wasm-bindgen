@@ -2,7 +2,7 @@
 
 WIP, many aspects not yet implemented.
 
-Import typescript directly in your wasm rust app.
+Import typescript definitions directly in your wasm rust app.
 
 ## Usage
 
