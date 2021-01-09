@@ -150,9 +150,9 @@ pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> Token
 mod tests {
     use super::*;
 
-    macro_rules! assert_debug_eq {
+    macro_rules! assert_tokenstream_eq {
         ($left: ident, $right: ident) => {
-            assert_eq!(format!("{:?}", $left), format!("{:?}", $right))
+            assert_eq!(format!("{}", $left), format!("{}", $right))
         };
     }
 
@@ -166,7 +166,7 @@ mod tests {
             };
             let generated = generate_wasm_bindgen_bindings($ts, "test");
 
-            assert_debug_eq!(generated, expected);
+            assert_tokenstream_eq!(generated, expected);
         };
     }
 
