@@ -1,0 +1,16 @@
+[package]
+name = "tests"
+version = "0.1.0"
+authors = ["Inseok Lee <dlunch@gmail.com>"]
+edition = "2018"
+
+[lib]
+doctest = false
+
+[dependencies]
+wasm-bindgen = { version = "^0.2" }
+
+typescript-wasm-bindgen = { path = ".." }
+
+[build-dependencies]
+typescript-wasm-bindgen = { path = ".." }
