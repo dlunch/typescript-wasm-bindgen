@@ -16,7 +16,7 @@ fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
             TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
             TsKeywordTypeKind::TsStringKeyword => quote! { &str },
             TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
-            _ => panic!(format!("{:?}", ts_type)),
+            _ => panic!(format!("unhandled {:?}", ts_type)),
         },
         _ => quote! { JsValue }, // TODO
     }
@@ -45,7 +45,7 @@ fn to_rust_param(param: &Param) -> TokenStream {
 
             quote! { #name: #rust_type }
         }
-        _ => panic!(format!("{:?}", param)),
+        _ => panic!(format!("unhandled {:?}", param)),
     }
 }
 
@@ -69,7 +69,7 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
                 if let ParamOrTsParamProp::Param(x) = x {
                     x
                 } else {
-                    panic!(format!("{:?}", x))
+                    panic!(format!("unhandled {:?}", x))
                 }
             }));
 
@@ -79,10 +79,10 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
             })
         }
         ClassMember::ClassProp(x) => match x.accessibility.unwrap() {
-            Accessibility::Public => panic!(format!("{:?}", member)),
+            Accessibility::Public => panic!(format!("unhandled {:?}", member)),
             _ => None,
         },
-        _ => panic!(format!("{:?}", member)),
+        _ => panic!(format!("unhandled {:?}", member)),
     }
 }
 
@@ -107,7 +107,7 @@ fn generate_export_decl(decl: &ExportDecl) -> TokenStream {
     match &decl.decl {
         Decl::Fn(x) => to_rust_fn(x),
         Decl::Class(x) => to_rust_class(x),
-        _ => panic!(format!("{:?}", decl)),
+        _ => panic!(format!("unhandled {:?}", decl)),
     }
 }
 
@@ -115,7 +115,7 @@ fn generate_module_decl(decl: &ModuleDecl) -> Option<TokenStream> {
     match &decl {
         ModuleDecl::ExportDecl(x) => Some(generate_export_decl(x)),
         ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
-        _ => panic!(format!("{:?}", decl)),
+        _ => panic!(format!("unhandled {:?}", decl)),
     }
 }
 
