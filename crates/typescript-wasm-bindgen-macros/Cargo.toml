@@ -10,5 +10,6 @@ doctest = false
 
 [dependencies]
 syn = { version = "^1.0" }
+proc-macro-error = { version = "^1.0" }
 
 typescript-wasm-bindgen-codegen = { path = "../typescript-wasm-bindgen-codegen" }
