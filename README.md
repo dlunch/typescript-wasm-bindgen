@@ -14,6 +14,31 @@ export function test(): void {
 }
 ```
 
+# build.rs
+
+```rust
+// build.rs
+
+use std::path::PathBuf;
+
+use typescript_wasm_bindgen::build_typescript_wasm_binding;
+
+fn main() {
+    build_typescript_wasm_binding(&PathBuf::from("./ts/test_function.ts"), "test").unwrap();
+}
+```
+
+```rust
+// lib.rs
+
+use typescript_wasm_bindgen::import_typescript_wasm_binding;
+use wasm_bindgen::prelude::wasm_bindgen;
+
+import_typescript_wasm_binding!("test_function");
+```
+
+# proc_macro
+
 ```rust
 // wasm/src/lib.rs
 
