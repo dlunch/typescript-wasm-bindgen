@@ -1,6 +1,7 @@
 use swc_common::BytePos;
 use swc_ecma_ast::{
-    ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, TsKeywordTypeKind, TsType, TsTypeAnn,
+    Accessibility, ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, TsKeywordTypeKind,
+    TsType, TsTypeAnn,
 };
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
@@ -77,6 +78,10 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
                 fn new(#params) -> #class_name;
             })
         }
+        ClassMember::ClassProp(x) => match x.accessibility.unwrap() {
+            Accessibility::Public => panic!(format!("{:?}", member)),
+            _ => None,
+        },
         _ => panic!(format!("{:?}", member)),
     }
 }
