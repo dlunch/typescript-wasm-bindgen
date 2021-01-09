@@ -17,7 +17,7 @@ fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
             TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
             _ => panic!(format!("{:?}", ts_type)),
         },
-        _ => panic!(format!("{:?}", ts_type)),
+        _ => quote! { JsValue }, // TODO
     }
 }
 
@@ -182,6 +182,14 @@ mod tests {
     fn test_function_params() {
         let ts = "export function test(a: number, b: boolean, c: string): void;";
         let expected = quote! { fn test(a: f64, b: bool, c: &str); };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_complex_type() {
+        let ts = "export function test(a?: null | { [index: string]: string; }): string;";
+        let expected = quote! { fn test(a: JsValue) -> &str; };
 
         assert_codegen_eq!(ts, expected);
     }
