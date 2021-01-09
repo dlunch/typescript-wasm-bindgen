@@ -82,8 +82,6 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
 }
 
 fn to_rust_class(decl: &ClassDecl) -> TokenStream {
-    eprintln!("{:?}", decl);
-
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
 
     let body = decl
@@ -108,16 +106,17 @@ fn generate_export_decl(decl: &ExportDecl) -> TokenStream {
     }
 }
 
-fn generate_module_decl(decl: &ModuleDecl) -> TokenStream {
+fn generate_module_decl(decl: &ModuleDecl) -> Option<TokenStream> {
     match &decl {
-        ModuleDecl::ExportDecl(x) => generate_export_decl(x),
+        ModuleDecl::ExportDecl(x) => Some(generate_export_decl(x)),
+        ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
         _ => panic!(format!("{:?}", decl)),
     }
 }
 
 fn generate_module_item(item: &ModuleItem) -> Option<TokenStream> {
     match &item {
-        ModuleItem::ModuleDecl(x) => Some(generate_module_decl(x)),
+        ModuleItem::ModuleDecl(x) => generate_module_decl(x),
         ModuleItem::Stmt(_) => None,
     }
 }
