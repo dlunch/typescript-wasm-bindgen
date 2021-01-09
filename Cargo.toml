@@ -5,17 +5,19 @@ authors = ["Inseok Lee <dlunch@gmail.com>"]
 edition = "2018"
 
 [lib]
-proc-macro = true
 doctest = false
 
 [dependencies]
-syn = { version = "^1.0" }
-quote = { version = "^1.0" }
-proc-macro2 = { version = "^1.0" }
-swc_common = { version = "^0.10" }
-swc_ecma_parser = { version = "^0.44" }
-swc_ecma_ast = { version = "^0.36" }
+typescript-wasm-bindgen-codegen = { path = "crates/typescript-wasm-bindgen-codegen" }
+typescript-wasm-bindgen-macros = { path = "crates/typescript-wasm-bindgen-macros" }
 
 [dev-dependencies]
 wasm-bindgen = { version = "^0.2" }
 trybuild = { version = "^1.0" }
+
+[workspace]
+
+members = [
+    "crates/typescript-wasm-bindgen-codegen",
+    "crates/typescript-wasm-bindgen-macros"
+]

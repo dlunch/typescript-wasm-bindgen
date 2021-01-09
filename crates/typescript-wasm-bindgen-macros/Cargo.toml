@@ -1,0 +1,14 @@
+[package]
+name = "typescript-wasm-bindgen-macros"
+version = "0.1.0"
+authors = ["Inseok Lee <dlunch@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+doctest = false
+
+[dependencies]
+syn = { version = "^1.0" }
+
+typescript-wasm-bindgen-codegen = { path = "../typescript-wasm-bindgen-codegen" }
