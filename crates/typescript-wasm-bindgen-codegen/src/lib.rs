@@ -78,10 +78,13 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
                 fn new(#params) -> #class_name;
             })
         }
-        ClassMember::ClassProp(x) => match x.accessibility.unwrap() {
-            Accessibility::Public => panic!(format!("unhandled {:?}", member)),
-            _ => None,
-        },
+        ClassMember::ClassProp(x) => {
+            if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
+                panic!(format!("unhandled {:?}", member))
+            } else {
+                None
+            }
+        }
         _ => panic!(format!("unhandled {:?}", member)),
     }
 }
