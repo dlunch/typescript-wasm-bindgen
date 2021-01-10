@@ -30,4 +30,4 @@ macro_rules! import_typescript_wasm_binding {
     };
 }
 
-pub use typescript_wasm_bindgen_macros::typescript;
+pub use typescript_wasm_bindgen_macros::typescript_wasm_bindgen;
