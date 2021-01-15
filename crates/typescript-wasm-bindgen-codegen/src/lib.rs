@@ -22,20 +22,25 @@ fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
     }
 }
 
-fn to_rust_return_type(ts_type: &TsTypeAnn) -> TokenStream {
-    let return_type = to_rust_type(ts_type);
+fn to_rust_return_type(ts_type: &Option<TsTypeAnn>) -> TokenStream {
+    if ts_type.is_none() {
+        TokenStream::new()
+    }
+    else {
+        let return_type = to_rust_type(&ts_type.as_ref().unwrap());
 
-    match &*ts_type.type_ann {
-        TsType::TsKeywordType(x) => {
-            if x.kind == TsKeywordTypeKind::TsVoidKeyword {
-                TokenStream::new()
-            } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
-                quote! { -> String }
-            } else {
-                quote! { -> #return_type }
+        match &*ts_type.as_ref().unwrap().type_ann {
+            TsType::TsKeywordType(x) => {
+                if x.kind == TsKeywordTypeKind::TsVoidKeyword {
+                    TokenStream::new()
+                } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
+                    quote! { -> String }
+                } else {
+                    quote! { -> #return_type }
+                }
             }
+            _ => quote! { -> #return_type },
         }
-        _ => quote! { -> #return_type },
     }
 }
 
@@ -57,7 +62,7 @@ fn to_rust_params<'a, T: Iterator<Item = &'a Param>>(params: T) -> impl ToTokens
 
 fn to_rust_fn(decl: &FnDecl) -> TokenStream {
     let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
-    let return_type = to_rust_return_type(&decl.function.return_type.as_ref().unwrap());
+    let return_type = to_rust_return_type(&decl.function.return_type);
 
     let params = to_rust_params(decl.function.params.iter());
 
@@ -104,7 +109,7 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
                     }
                 };
 
-                let return_type = to_rust_return_type(&x.function.return_type.as_ref().unwrap());
+                let return_type = to_rust_return_type(&x.function.return_type);
 
                 let name = match &x.key {
                     PropName::Ident(x) => x.sym.to_string(),
@@ -265,6 +270,8 @@ mod tests {
             constructor(test: string) {}
 
             test(test: number): string {}
+
+            test1(test: number) {}
         };";
         let expected = quote! {
             type test;
@@ -274,6 +281,9 @@ mod tests {
 
             #[wasm_bindgen(method)]
             fn test(this: &test, test: f64) -> String;
+
+             #[wasm_bindgen(method)]
+            fn test1(this: &test, test: f64);
         };
 
         assert_codegen_eq!(ts, expected);
