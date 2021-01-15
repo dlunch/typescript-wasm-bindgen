@@ -9,187 +9,200 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Token};
 
-fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
-    match &*ts_type.type_ann {
-        TsType::TsKeywordType(x) => match x.kind {
-            TsKeywordTypeKind::TsVoidKeyword => quote! { () },
-            TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
-            TsKeywordTypeKind::TsStringKeyword => quote! { &str },
-            TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
-            _ => panic!(format!("unhandled {:?}", ts_type)),
-        },
-        _ => quote! { JsValue }, // TODO
-    }
-}
+struct Codegen {}
 
-fn to_rust_return_type(ts_type: &Option<TsTypeAnn>) -> TokenStream {
-    if ts_type.is_none() {
-        TokenStream::new()
-    } else {
-        let return_type = to_rust_type(&ts_type.as_ref().unwrap());
+impl Codegen {
+    pub fn generate(content: &str, module_name: &str) -> TokenStream {
+        let lexer = Lexer::new(
+            Syntax::Typescript(TsConfig {
+                dynamic_import: true, // TODO tsconfig?
+                ..Default::default()
+            }),
+            Default::default(),
+            StringInput::new(content, BytePos(0), BytePos(content.len() as u32)),
+            None,
+        );
 
-        match &*ts_type.as_ref().unwrap().type_ann {
-            TsType::TsKeywordType(x) => {
-                if x.kind == TsKeywordTypeKind::TsVoidKeyword {
-                    TokenStream::new()
-                } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
-                    quote! { -> String }
-                } else {
-                    quote! { -> #return_type }
-                }
-            }
-            _ => quote! { -> #return_type },
-        }
-    }
-}
+        let mut parser = Parser::new_from(lexer);
+        let module = parser.parse_typescript_module().unwrap();
 
-fn to_rust_param(param: &Param) -> TokenStream {
-    match &param.pat {
-        Pat::Ident(x) => {
-            let name = Ident::new(&x.sym.to_string(), Span::call_site());
-            let rust_type = to_rust_type(&x.type_ann.as_ref().unwrap());
+        let codegen = Self {};
+        let definitions = module
+            .body
+            .iter()
+            .filter_map(|x| codegen.generate_module_item(x))
+            .collect::<TokenStream>();
 
-            quote! { #name: #rust_type }
-        }
-        _ => panic!(format!("unhandled {:?}", param)),
-    }
-}
-
-fn to_rust_params<'a, T: Iterator<Item = &'a Param>>(params: T) -> impl ToTokens {
-    params.map(to_rust_param).collect::<Punctuated<TokenStream, Token![,]>>()
-}
-
-fn to_rust_fn(decl: &FnDecl) -> TokenStream {
-    let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
-    let return_type = to_rust_return_type(&decl.function.return_type);
-
-    let params = to_rust_params(decl.function.params.iter());
-
-    quote! { fn #name(#params) #return_type; }
-}
-
-fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
-    match &member {
-        ClassMember::Constructor(x) => {
-            let params = to_rust_params(x.params.iter().map(|x| {
-                if let ParamOrTsParamProp::Param(x) = x {
-                    x
-                } else {
-                    panic!(format!("unhandled {:?}", x))
-                }
-            }));
-
-            Some(quote! {
-                #[wasm_bindgen(constructor)]
-                fn new(#params) -> #class_name;
-            })
-        }
-        ClassMember::ClassProp(x) => {
-            if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                // TODO We have to use js_sys::Reflect
-                eprintln!("unhandled prop {:?}", member);
-
-                None
-            } else {
-                None
+        quote! {
+            #[wasm_bindgen(module = #module_name)]
+            extern "C" {
+                #definitions
             }
         }
-        ClassMember::Method(x) => {
-            if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                let params = if !x.function.params.is_empty() {
-                    let params = to_rust_params(x.function.params.iter());
+    }
 
-                    quote! {
-                        this: &#class_name, #params
+    fn to_rust_type(&self, ts_type: &TsTypeAnn) -> TokenStream {
+        match &*ts_type.type_ann {
+            TsType::TsKeywordType(x) => match x.kind {
+                TsKeywordTypeKind::TsVoidKeyword => quote! { () },
+                TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
+                TsKeywordTypeKind::TsStringKeyword => quote! { &str },
+                TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
+                _ => panic!(format!("unhandled {:?}", ts_type)),
+            },
+            _ => quote! { JsValue }, // TODO
+        }
+    }
+
+    fn to_rust_return_type(&self, ts_type: &Option<TsTypeAnn>) -> TokenStream {
+        if ts_type.is_none() {
+            TokenStream::new()
+        } else {
+            let return_type = self.to_rust_type(&ts_type.as_ref().unwrap());
+
+            match &*ts_type.as_ref().unwrap().type_ann {
+                TsType::TsKeywordType(x) => {
+                    if x.kind == TsKeywordTypeKind::TsVoidKeyword {
+                        TokenStream::new()
+                    } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
+                        quote! { -> String }
+                    } else {
+                        quote! { -> #return_type }
                     }
-                } else {
-                    quote! {
-                        this: &#class_name
+                }
+                _ => quote! { -> #return_type },
+            }
+        }
+    }
+
+    fn to_rust_param(&self, param: &Param) -> TokenStream {
+        match &param.pat {
+            Pat::Ident(x) => {
+                let name = Ident::new(&x.sym.to_string(), Span::call_site());
+                let rust_type = self.to_rust_type(&x.type_ann.as_ref().unwrap());
+
+                quote! { #name: #rust_type }
+            }
+            _ => panic!(format!("unhandled {:?}", param)),
+        }
+    }
+
+    fn to_rust_params<'a, T: Iterator<Item = &'a Param>>(&self, params: T) -> impl ToTokens {
+        params.map(|x| self.to_rust_param(x)).collect::<Punctuated<TokenStream, Token![,]>>()
+    }
+
+    fn to_rust_fn(&self, decl: &FnDecl) -> TokenStream {
+        let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
+        let return_type = self.to_rust_return_type(&decl.function.return_type);
+
+        let params = self.to_rust_params(decl.function.params.iter());
+
+        quote! { fn #name(#params) #return_type; }
+    }
+
+    fn to_rust_class_member(&self, class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
+        match &member {
+            ClassMember::Constructor(x) => {
+                let params = self.to_rust_params(x.params.iter().map(|x| {
+                    if let ParamOrTsParamProp::Param(x) = x {
+                        x
+                    } else {
+                        panic!(format!("unhandled {:?}", x))
                     }
-                };
-
-                let return_type = to_rust_return_type(&x.function.return_type);
-
-                let name = match &x.key {
-                    PropName::Ident(x) => x.sym.to_string(),
-                    _ => panic!(),
-                };
-                let name = Ident::new(&name, Span::call_site());
+                }));
 
                 Some(quote! {
-                    #[wasm_bindgen(method)]
-                    fn #name(#params) #return_type;
+                    #[wasm_bindgen(constructor)]
+                    fn new(#params) -> #class_name;
                 })
-            } else {
-                None
             }
+            ClassMember::ClassProp(x) => {
+                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
+                    // TODO We have to use js_sys::Reflect
+                    eprintln!("unhandled prop {:?}", member);
+
+                    None
+                } else {
+                    None
+                }
+            }
+            ClassMember::Method(x) => {
+                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
+                    let params = if !x.function.params.is_empty() {
+                        let params = self.to_rust_params(x.function.params.iter());
+
+                        quote! {
+                            this: &#class_name, #params
+                        }
+                    } else {
+                        quote! {
+                            this: &#class_name
+                        }
+                    };
+
+                    let return_type = self.to_rust_return_type(&x.function.return_type);
+
+                    let name = match &x.key {
+                        PropName::Ident(x) => x.sym.to_string(),
+                        _ => panic!(),
+                    };
+                    let name = Ident::new(&name, Span::call_site());
+
+                    Some(quote! {
+                        #[wasm_bindgen(method)]
+                        fn #name(#params) #return_type;
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => panic!(format!("unhandled {:?}", member)),
         }
-        _ => panic!(format!("unhandled {:?}", member)),
     }
-}
 
-fn to_rust_class(decl: &ClassDecl) -> TokenStream {
-    let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
+    fn to_rust_class(&self, decl: &ClassDecl) -> TokenStream {
+        let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
 
-    let body = decl
-        .class
-        .body
-        .iter()
-        .filter_map(|x| to_rust_class_member(&name, x))
-        .collect::<TokenStream>();
+        let body = decl
+            .class
+            .body
+            .iter()
+            .filter_map(|x| self.to_rust_class_member(&name, x))
+            .collect::<TokenStream>();
 
-    quote! {
-        type #name;
+        quote! {
+            type #name;
 
-        #body
+            #body
+        }
     }
-}
 
-fn generate_export_decl(decl: &ExportDecl) -> TokenStream {
-    match &decl.decl {
-        Decl::Fn(x) => to_rust_fn(x),
-        Decl::Class(x) => to_rust_class(x),
-        _ => panic!(format!("unhandled {:?}", decl)),
+    fn generate_export_decl(&self, decl: &ExportDecl) -> TokenStream {
+        match &decl.decl {
+            Decl::Fn(x) => self.to_rust_fn(x),
+            Decl::Class(x) => self.to_rust_class(x),
+            _ => panic!(format!("unhandled {:?}", decl)),
+        }
     }
-}
 
-fn generate_module_decl(decl: &ModuleDecl) -> Option<TokenStream> {
-    match &decl {
-        ModuleDecl::ExportDecl(x) => Some(generate_export_decl(x)),
-        ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
-        _ => panic!(format!("unhandled {:?}", decl)),
+    fn generate_module_decl(&self, decl: &ModuleDecl) -> Option<TokenStream> {
+        match &decl {
+            ModuleDecl::ExportDecl(x) => Some(self.generate_export_decl(x)),
+            ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
+            _ => panic!(format!("unhandled {:?}", decl)),
+        }
     }
-}
 
-fn generate_module_item(item: &ModuleItem) -> Option<TokenStream> {
-    match &item {
-        ModuleItem::ModuleDecl(x) => generate_module_decl(x),
-        ModuleItem::Stmt(_) => None,
+    fn generate_module_item(&self, item: &ModuleItem) -> Option<TokenStream> {
+        match &item {
+            ModuleItem::ModuleDecl(x) => self.generate_module_decl(x),
+            ModuleItem::Stmt(_) => None,
+        }
     }
 }
 
 pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> TokenStream {
-    let lexer = Lexer::new(
-        Syntax::Typescript(TsConfig {
-            dynamic_import: true, // TODO tsconfig?
-            ..Default::default()
-        }),
-        Default::default(),
-        StringInput::new(content, BytePos(0), BytePos(content.len() as u32)),
-        None,
-    );
-
-    let mut parser = Parser::new_from(lexer);
-    let module = parser.parse_typescript_module().unwrap();
-
-    let definitions = module.body.iter().filter_map(generate_module_item).collect::<TokenStream>();
-
-    quote! {
-        #[wasm_bindgen(module = #module_name)]
-        extern "C" {
-            #definitions
-        }
-    }
+    Codegen::generate(content, module_name)
 }
 
 #[cfg(test)]
