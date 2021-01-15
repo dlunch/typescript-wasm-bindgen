@@ -80,7 +80,10 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
         }
         ClassMember::ClassProp(x) => {
             if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                panic!(format!("unhandled {:?}", member))
+                // TODO We have to use js_sys::Reflect
+                eprintln!("unhandled prop {:?}", member);
+
+                None
             } else {
                 None
             }
