@@ -1,7 +1,7 @@
 use swc_common::BytePos;
 use swc_ecma_ast::{
-    Accessibility, ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, TsKeywordTypeKind,
-    TsType, TsTypeAnn,
+    Accessibility, ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, PropName,
+    TsKeywordTypeKind, TsType, TsTypeAnn,
 };
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
@@ -84,6 +84,36 @@ fn to_rust_class_member(class_name: &Ident, member: &ClassMember) -> Option<Toke
                 eprintln!("unhandled prop {:?}", member);
 
                 None
+            } else {
+                None
+            }
+        }
+        ClassMember::Method(x) => {
+            if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
+                let params = if !x.function.params.is_empty() {
+                    let params = to_rust_params(x.function.params.iter());
+
+                    quote! {
+                        this: &#class_name, #params
+                    }
+                } else {
+                    quote! {
+                        this: &#class_name
+                    }
+                };
+
+                let return_type = to_rust_return_type(&x.function.return_type.as_ref().unwrap());
+
+                let name = match &x.key {
+                    PropName::Ident(x) => x.sym.to_string(),
+                    _ => panic!(),
+                };
+                let name = Ident::new(&name, Span::call_site());
+
+                Some(quote! {
+                    #[wasm_bindgen(method)]
+                    fn #name(#params) #return_type;
+                })
             } else {
                 None
             }
@@ -222,6 +252,26 @@ mod tests {
 
             #[wasm_bindgen(constructor)]
             fn new(test: &str) -> test;
+        };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_class_method() {
+        let ts = "export class test {
+            constructor(test: string) {}
+
+            test(test: number): string {}
+        };";
+        let expected = quote! {
+            type test;
+
+            #[wasm_bindgen(constructor)]
+            fn new(test: &str) -> test;
+
+            #[wasm_bindgen(method)]
+            fn test(this: &test, test: f64) -> &str;
         };
 
         assert_codegen_eq!(ts, expected);
