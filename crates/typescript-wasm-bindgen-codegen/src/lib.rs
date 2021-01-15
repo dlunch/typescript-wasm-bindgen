@@ -29,6 +29,8 @@ fn to_rust_return_type(ts_type: &TsTypeAnn) -> TokenStream {
         TsType::TsKeywordType(x) => {
             if x.kind == TsKeywordTypeKind::TsVoidKeyword {
                 TokenStream::new()
+            } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
+                quote! { -> String }
             } else {
                 quote! { -> #return_type }
             }
@@ -229,7 +231,7 @@ mod tests {
     #[test]
     fn test_complex_type() {
         let ts = "export function test(a?: null | { [index: string]: string; }): string;";
-        let expected = quote! { fn test(a: JsValue) -> &str; };
+        let expected = quote! { fn test(a: JsValue) -> String; };
 
         assert_codegen_eq!(ts, expected);
     }
@@ -271,7 +273,7 @@ mod tests {
             fn new(test: &str) -> test;
 
             #[wasm_bindgen(method)]
-            fn test(this: &test, test: f64) -> &str;
+            fn test(this: &test, test: f64) -> String;
         };
 
         assert_codegen_eq!(ts, expected);
