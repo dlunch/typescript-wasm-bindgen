@@ -25,8 +25,7 @@ fn to_rust_type(ts_type: &TsTypeAnn) -> TokenStream {
 fn to_rust_return_type(ts_type: &Option<TsTypeAnn>) -> TokenStream {
     if ts_type.is_none() {
         TokenStream::new()
-    }
-    else {
+    } else {
         let return_type = to_rust_type(&ts_type.as_ref().unwrap());
 
         match &*ts_type.as_ref().unwrap().type_ann {
