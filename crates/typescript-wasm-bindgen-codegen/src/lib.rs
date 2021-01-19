@@ -91,16 +91,18 @@ impl Codegen {
         params.map(|x| self.to_rust_param(x)).collect::<Punctuated<TokenStream, Token![,]>>()
     }
 
-    fn to_rust_fn(&self, decl: &FnDecl) -> TokenStream {
-        let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
-        let return_type = self.to_rust_return_type(&decl.function.return_type);
+    fn to_rust_fn(&self, fn_decl: &FnDecl) -> TokenStream {
+        let name = Ident::new(&fn_decl.ident.sym.to_string(), Span::call_site());
+        let return_type = self.to_rust_return_type(&fn_decl.function.return_type);
 
-        let params = self.to_rust_params(decl.function.params.iter());
+        let params = self.to_rust_params(fn_decl.function.params.iter());
 
         quote! { fn #name(#params) #return_type; }
     }
 
-    fn to_rust_class_member(&self, class_name: &Ident, member: &ClassMember) -> Option<TokenStream> {
+    fn to_rust_class_member(&self, class: &ClassDecl, member: &ClassMember) -> Option<TokenStream> {
+        let class_name = Ident::new(&class.ident.sym.to_string(), Span::call_site());
+
         match &member {
             ClassMember::Constructor(x) => {
                 let params = self.to_rust_params(x.params.iter().map(|x| {
@@ -160,14 +162,14 @@ impl Codegen {
         }
     }
 
-    fn to_rust_class(&self, decl: &ClassDecl) -> TokenStream {
-        let name = Ident::new(&decl.ident.sym.to_string(), Span::call_site());
+    fn to_rust_class(&self, class: &ClassDecl) -> TokenStream {
+        let name = Ident::new(&class.ident.sym.to_string(), Span::call_site());
 
-        let body = decl
+        let body = class
             .class
             .body
             .iter()
-            .filter_map(|x| self.to_rust_class_member(&name, x))
+            .filter_map(|x| self.to_rust_class_member(&class, x))
             .collect::<TokenStream>();
 
         quote! {
@@ -177,19 +179,19 @@ impl Codegen {
         }
     }
 
-    fn generate_export_decl(&self, decl: &ExportDecl) -> TokenStream {
-        match &decl.decl {
+    fn generate_export_decl(&self, export: &ExportDecl) -> TokenStream {
+        match &export.decl {
             Decl::Fn(x) => self.to_rust_fn(x),
             Decl::Class(x) => self.to_rust_class(x),
-            _ => panic!(format!("unhandled {:?}", decl)),
+            _ => panic!(format!("unhandled {:?}", export)),
         }
     }
 
-    fn generate_module_decl(&self, decl: &ModuleDecl) -> Option<TokenStream> {
-        match &decl {
+    fn generate_module_decl(&self, module: &ModuleDecl) -> Option<TokenStream> {
+        match &module {
             ModuleDecl::ExportDecl(x) => Some(self.generate_export_decl(x)),
             ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
-            _ => panic!(format!("unhandled {:?}", decl)),
+            _ => panic!(format!("unhandled {:?}", module)),
         }
     }
 
