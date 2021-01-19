@@ -1,6 +1,6 @@
 use swc_common::BytePos;
 use swc_ecma_ast::{
-    Accessibility, ClassDecl, ClassMember, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, PropName,
+    Accessibility, ClassDecl, ClassMember, ClassMethod, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, PropName,
     TsKeywordTypeKind, TsType, TsTypeAnn,
 };
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
@@ -100,6 +100,13 @@ impl Codegen {
         quote! { fn #name(#params) #return_type; }
     }
 
+    fn to_rust_class_method_name(&self, method: &ClassMethod) -> String {
+        match &method.key {
+            PropName::Ident(x) => x.sym.to_string(),
+            _ => panic!(),
+        }
+    }
+
     fn to_rust_class_member(&self, class: &ClassDecl, member: &ClassMember) -> Option<TokenStream> {
         let class_name = Ident::new(&class.ident.sym.to_string(), Span::call_site());
 
@@ -144,10 +151,15 @@ impl Codegen {
 
                     let return_type = self.to_rust_return_type(&x.function.return_type);
 
-                    let name = match &x.key {
-                        PropName::Ident(x) => x.sym.to_string(),
-                        _ => panic!(),
-                    };
+                    let mut name = self.to_rust_class_method_name(&x);
+                    for member in &class.class.body {
+                        if let ClassMember::Method(member_method) = member {
+                            if self.to_rust_class_method_name(&member_method) == name && x != member_method {
+                                name = format!("{}_{}", name, x.function.params.len())
+                            }
+                        }
+                    }
+
                     let name = Ident::new(&name, Span::call_site());
 
                     Some(quote! {
@@ -298,6 +310,36 @@ mod tests {
 
              #[wasm_bindgen(method)]
             fn test1(this: &test, test: f64);
+        };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_class_method_overload() {
+        let ts = "export class test {
+            constructor(test: string) {}
+
+            test(): string {}
+
+            test(test: number): string {}
+
+            test(test: number, test1: string) {}
+        };";
+        let expected = quote! {
+            type test;
+
+            #[wasm_bindgen(constructor)]
+            fn new(test: &str) -> test;
+
+            #[wasm_bindgen(method)]
+            fn test_0(this: &test) -> String;
+
+            #[wasm_bindgen(method)]
+            fn test_1(this: &test, test: f64) -> String;
+
+             #[wasm_bindgen(method)]
+            fn test_2(this: &test, test: f64, test1: &str);
         };
 
         assert_codegen_eq!(ts, expected);
