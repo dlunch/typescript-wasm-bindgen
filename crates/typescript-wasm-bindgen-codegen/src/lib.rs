@@ -9,13 +9,18 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Token};
 
-struct Codegen {}
+struct Codegen {
+    dts: bool,
+}
 
 impl Codegen {
     pub fn generate(content: &str, module_name: &str) -> TokenStream {
+        let dts = false;
+
         let lexer = Lexer::new(
             Syntax::Typescript(TsConfig {
                 dynamic_import: true, // TODO tsconfig?
+                dts,
                 ..Default::default()
             }),
             Default::default(),
@@ -26,7 +31,7 @@ impl Codegen {
         let mut parser = Parser::new_from(lexer);
         let module = parser.parse_typescript_module().unwrap();
 
-        let codegen = Self {};
+        let codegen = Self { dts };
         let definitions = module
             .body
             .iter()
@@ -137,35 +142,41 @@ impl Codegen {
             }
             ClassMember::Method(x) => {
                 if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                    let params = if !x.function.params.is_empty() {
-                        let params = self.to_rust_params(x.function.params.iter());
+                    if x.function.body.is_some() || self.dts {
+                        // do not generate method if we are not on d.ts and has no body
 
-                        quote! {
-                            this: &#class_name, #params
-                        }
-                    } else {
-                        quote! {
-                            this: &#class_name
-                        }
-                    };
+                        let params = if !x.function.params.is_empty() {
+                            let params = self.to_rust_params(x.function.params.iter());
 
-                    let return_type = self.to_rust_return_type(&x.function.return_type);
+                            quote! {
+                                this: &#class_name, #params
+                            }
+                        } else {
+                            quote! {
+                                this: &#class_name
+                            }
+                        };
 
-                    let mut name = self.to_rust_class_method_name(&x);
-                    for member in &class.class.body {
-                        if let ClassMember::Method(member_method) = member {
-                            if self.to_rust_class_method_name(&member_method) == name && x != member_method {
-                                name = format!("{}_{}", name, x.function.params.len())
+                        let return_type = self.to_rust_return_type(&x.function.return_type);
+
+                        let mut name = self.to_rust_class_method_name(&x);
+                        for member in &class.class.body {
+                            if let ClassMember::Method(member_method) = member {
+                                if self.to_rust_class_method_name(&member_method) == name && x != member_method {
+                                    name = format!("{}_{}", name, x.function.params.len())
+                                }
                             }
                         }
+
+                        let name = Ident::new(&name, Span::call_site());
+
+                        Some(quote! {
+                            #[wasm_bindgen(method)]
+                            fn #name(#params) #return_type;
+                        })
+                    } else {
+                        None
                     }
-
-                    let name = Ident::new(&name, Span::call_site());
-
-                    Some(quote! {
-                        #[wasm_bindgen(method)]
-                        fn #name(#params) #return_type;
-                    })
                 } else {
                     None
                 }
