@@ -159,11 +159,16 @@ impl Codegen {
 
                         let return_type = self.to_rust_return_type(&x.function.return_type);
 
+                        let mut extra_attributes = TokenStream::new();
                         let mut name = self.to_rust_class_method_name(&x);
                         for member in &class.class.body {
                             if let ClassMember::Method(member_method) = member {
                                 if self.to_rust_class_method_name(&member_method) == name && x != member_method {
-                                    name = format!("{}_{}", name, x.function.params.len())
+                                    extra_attributes = quote! {
+                                        , js_name = #name
+                                    };
+
+                                    name = format!("{}_{}", name, x.function.params.len());
                                 }
                             }
                         }
@@ -171,7 +176,7 @@ impl Codegen {
                         let name = Ident::new(&name, Span::call_site());
 
                         Some(quote! {
-                            #[wasm_bindgen(method)]
+                            #[wasm_bindgen(method #extra_attributes)]
                             fn #name(#params) #return_type;
                         })
                     } else {
@@ -343,13 +348,13 @@ mod tests {
             #[wasm_bindgen(constructor)]
             fn new(test: &str) -> test;
 
-            #[wasm_bindgen(method)]
+            #[wasm_bindgen(method, js_name = "test")]
             fn test_0(this: &test) -> String;
 
-            #[wasm_bindgen(method)]
+            #[wasm_bindgen(method, js_name = "test")]
             fn test_1(this: &test, test: f64) -> String;
 
-             #[wasm_bindgen(method)]
+             #[wasm_bindgen(method, js_name = "test")]
             fn test_2(this: &test, test: f64, test1: &str);
         };
 
