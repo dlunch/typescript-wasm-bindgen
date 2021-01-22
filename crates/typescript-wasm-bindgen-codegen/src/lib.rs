@@ -141,47 +141,46 @@ impl Codegen {
                 }
             }
             ClassMember::Method(x) => {
-                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                    if x.function.body.is_some() || self.dts {
-                        // do not generate method if we are not on d.ts and has no body
+                if (x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public) && (x.function.body.is_some() || self.dts) {
+                    // do not generate method if we are not on d.ts and has no body
 
-                        let params = if !x.function.params.is_empty() {
-                            let params = self.to_rust_params(x.function.params.iter());
+                    let params = if !x.function.params.is_empty() {
+                        let params = self.to_rust_params(x.function.params.iter());
 
-                            quote! {
-                                this: &#class_name, #params
-                            }
-                        } else {
-                            quote! {
-                                this: &#class_name
-                            }
-                        };
+                        quote! {
+                            this: &#class_name, #params
+                        }
+                    } else {
+                        quote! {
+                            this: &#class_name
+                        }
+                    };
 
-                        let return_type = self.to_rust_return_type(&x.function.return_type);
+                    let return_type = self.to_rust_return_type(&x.function.return_type);
 
-                        let mut extra_attributes = TokenStream::new();
-                        let mut name = self.to_rust_class_method_name(&x);
-                        for member in &class.class.body {
-                            if let ClassMember::Method(member_method) = member {
-                                if self.to_rust_class_method_name(&member_method) == name && x != member_method {
-                                    extra_attributes = quote! {
-                                        , js_name = #name
-                                    };
+                    let mut extra_attributes = TokenStream::new();
+                    let mut name = self.to_rust_class_method_name(&x);
+                    for member in &class.class.body {
+                        if let ClassMember::Method(member_method) = member {
+                            if (member_method.function.body.is_some() || self.dts)
+                                && self.to_rust_class_method_name(&member_method) == name
+                                && x != member_method
+                            {
+                                extra_attributes = quote! {
+                                    , js_name = #name
+                                };
 
-                                    name = format!("{}_{}", name, x.function.params.len());
-                                }
+                                name = format!("{}_{}", name, x.function.params.len());
                             }
                         }
-
-                        let name = Ident::new(&name, Span::call_site());
-
-                        Some(quote! {
-                            #[wasm_bindgen(method #extra_attributes)]
-                            fn #name(#params) #return_type;
-                        })
-                    } else {
-                        None
                     }
+
+                    let name = Ident::new(&name, Span::call_site());
+
+                    Some(quote! {
+                        #[wasm_bindgen(method #extra_attributes)]
+                        fn #name(#params) #return_type;
+                    })
                 } else {
                     None
                 }
