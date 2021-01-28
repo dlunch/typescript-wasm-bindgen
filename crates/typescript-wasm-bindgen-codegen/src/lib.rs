@@ -199,10 +199,21 @@ impl Codegen {
             .filter_map(|x| self.to_rust_class_member(&class, x))
             .collect::<TokenStream>();
 
+        let constructor = if !class.class.body.iter().any(|x| x.is_constructor()) {
+            quote! {
+                #[wasm_bindgen(constructor)]
+                fn new() -> #name;
+            }
+        } else {
+            quote! {}
+        };
+
         quote! {
             type #name;
 
             #body
+
+            #constructor
         }
     }
 
