@@ -206,17 +206,22 @@ impl Codegen {
         }
     }
 
-    fn generate_export_decl(&self, export: &ExportDecl) -> TokenStream {
+    fn generate_export_decl(&self, export: &ExportDecl) -> Option<TokenStream> {
         match &export.decl {
-            Decl::Fn(x) => self.to_rust_fn(x),
-            Decl::Class(x) => self.to_rust_class(x),
+            Decl::Fn(x) => Some(self.to_rust_fn(x)),
+            Decl::Class(x) => Some(self.to_rust_class(x)),
+            Decl::TsModule(_) => {
+                // TODO
+                eprintln!("unhandled {:?}", export);
+                None
+            }
             _ => panic!(format!("unhandled {:?}", export)),
         }
     }
 
     fn generate_module_decl(&self, module: &ModuleDecl) -> Option<TokenStream> {
         match &module {
-            ModuleDecl::ExportDecl(x) => Some(self.generate_export_decl(x)),
+            ModuleDecl::ExportDecl(x) => self.generate_export_decl(x),
             ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
             _ => panic!(format!("unhandled {:?}", module)),
         }
