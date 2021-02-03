@@ -301,7 +301,12 @@ mod tests {
     #[test]
     fn test_class() {
         let ts = "export class test {};";
-        let expected = quote! { type test; };
+        let expected = quote! {
+            type test;
+
+            #[wasm_bindgen(constructor)]
+            fn new() -> test;
+        };
 
         assert_codegen_eq!(ts, expected);
     }
