@@ -53,7 +53,7 @@ impl Codegen {
                 TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
                 TsKeywordTypeKind::TsStringKeyword => quote! { &str },
                 TsKeywordTypeKind::TsBooleanKeyword => quote! { bool },
-                _ => panic!(format!("unhandled {:?}", ts_type)),
+                _ => panic!("unhandled {:?}", ts_type),
             },
             _ => quote! { JsValue }, // TODO
         }
@@ -88,7 +88,7 @@ impl Codegen {
 
                 quote! { #name: #rust_type }
             }
-            _ => panic!(format!("unhandled {:?}", param)),
+            _ => panic!("unhandled {:?}", param),
         }
     }
 
@@ -121,7 +121,7 @@ impl Codegen {
                     if let ParamOrTsParamProp::Param(x) = x {
                         x
                     } else {
-                        panic!(format!("unhandled {:?}", x))
+                        panic!("unhandled {:?}", x)
                     }
                 }));
 
@@ -185,7 +185,7 @@ impl Codegen {
                     None
                 }
             }
-            _ => panic!(format!("unhandled {:?}", member)),
+            _ => panic!("unhandled {:?}", member),
         }
     }
 
@@ -226,7 +226,7 @@ impl Codegen {
                 eprintln!("unhandled {:?}", export);
                 None
             }
-            _ => panic!(format!("unhandled {:?}", export)),
+            _ => panic!("unhandled {:?}", export),
         }
     }
 
@@ -234,7 +234,7 @@ impl Codegen {
         match &module {
             ModuleDecl::ExportDecl(x) => self.generate_export_decl(x),
             ModuleDecl::Import(_) => None, // TODO Make an option to handle imports
-            _ => panic!(format!("unhandled {:?}", module)),
+            _ => panic!("unhandled {:?}", module),
         }
     }
 
