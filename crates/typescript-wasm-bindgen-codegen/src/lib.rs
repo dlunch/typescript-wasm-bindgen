@@ -103,7 +103,7 @@ impl Codegen {
 
         let params = self.to_rust_params(fn_decl.function.params.iter());
 
-        quote! { fn #name(#params) #return_type; }
+        quote! { pub fn #name(#params) #return_type; }
     }
 
     fn to_rust_class_method_name(&self, method: &ClassMethod) -> String {
@@ -128,7 +128,7 @@ impl Codegen {
 
                 Some(quote! {
                     #[wasm_bindgen(constructor)]
-                    fn new(#params) -> #class_name;
+                    pub fn new(#params) -> #class_name;
                 })
             }
             ClassMember::ClassProp(x) => {
@@ -180,7 +180,7 @@ impl Codegen {
 
                     Some(quote! {
                         #[wasm_bindgen(method #extra_attributes)]
-                        fn #name(#params) #return_type;
+                        pub fn #name(#params) #return_type;
                     })
                 } else {
                     None
@@ -203,14 +203,14 @@ impl Codegen {
         let constructor = if !class.class.body.iter().any(|x| x.is_constructor()) {
             quote! {
                 #[wasm_bindgen(constructor)]
-                fn new() -> #name;
+                pub fn new() -> #name;
             }
         } else {
             quote! {}
         };
 
         quote! {
-            type #name;
+            pub type #name;
 
             #body
 
