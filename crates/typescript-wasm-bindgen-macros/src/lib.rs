@@ -19,8 +19,10 @@ pub fn typescript_wasm_bindgen(input: TokenStream) -> TokenStream {
         abort_call_site!(format!("Can't open file on {:?}", file_path));
     }
 
+    let dts = file_path.to_str().unwrap().ends_with(".d.ts");
+
     let content = content.unwrap();
     let content_str = str::from_utf8(&content).unwrap();
 
-    generate_wasm_bindgen_bindings(content_str, &module_name.value()).into()
+    generate_wasm_bindgen_bindings(content_str, &module_name.value(), dts).into()
 }
