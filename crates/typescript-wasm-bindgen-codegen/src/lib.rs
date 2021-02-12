@@ -38,9 +38,10 @@ impl Codegen {
             .filter_map(|x| codegen.generate_module_item(x))
             .collect::<TokenStream>();
 
+        // TODO should we make `pub` modoifier optional?
         quote! {
             #[wasm_bindgen(module = #module_name)]
-            extern "C" {
+            pub extern "C" {
                 #definitions
             }
         }
@@ -264,7 +265,7 @@ mod tests {
         ($ts: ident, $expected: ident) => {
             let expected = quote! {
                 #[wasm_bindgen(module = "test")]
-                extern "C" {
+                pub extern "C" {
                     #$expected
                 }
             };
