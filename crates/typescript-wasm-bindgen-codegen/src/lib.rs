@@ -38,10 +38,9 @@ impl Codegen {
             .filter_map(|x| codegen.generate_module_item(x))
             .collect::<TokenStream>();
 
-        // TODO should we make `pub` modoifier optional?
         quote! {
             #[wasm_bindgen(module = #module_name)]
-            pub extern "C" {
+            extern "C" {
                 #definitions
             }
         }
@@ -265,7 +264,7 @@ mod tests {
         ($ts: ident, $expected: ident) => {
             let expected = quote! {
                 #[wasm_bindgen(module = "test")]
-                pub extern "C" {
+                extern "C" {
                     #$expected
                 }
             };
@@ -278,7 +277,7 @@ mod tests {
     #[test]
     fn test_function() {
         let ts = "export function test(): void;";
-        let expected = quote! { fn test(); };
+        let expected = quote! { pub fn test(); };
 
         assert_codegen_eq!(ts, expected);
     }
@@ -286,7 +285,7 @@ mod tests {
     #[test]
     fn test_function_params() {
         let ts = "export function test(a: number, b: boolean, c: string): void;";
-        let expected = quote! { fn test(a: f64, b: bool, c: &str); };
+        let expected = quote! { pub fn test(a: f64, b: bool, c: &str); };
 
         assert_codegen_eq!(ts, expected);
     }
@@ -294,7 +293,7 @@ mod tests {
     #[test]
     fn test_complex_type() {
         let ts = "export function test(a?: null | { [index: string]: string; }): string;";
-        let expected = quote! { fn test(a: JsValue) -> String; };
+        let expected = quote! { pub fn test(a: JsValue) -> String; };
 
         assert_codegen_eq!(ts, expected);
     }
@@ -303,10 +302,10 @@ mod tests {
     fn test_class() {
         let ts = "export class test {};";
         let expected = quote! {
-            type test;
+            pub type test;
 
             #[wasm_bindgen(constructor)]
-            fn new() -> test;
+            pub fn new() -> test;
         };
 
         assert_codegen_eq!(ts, expected);
@@ -318,10 +317,10 @@ mod tests {
             constructor(test: string) {}
         };";
         let expected = quote! {
-            type test;
+            pub type test;
 
             #[wasm_bindgen(constructor)]
-            fn new(test: &str) -> test;
+            pub fn new(test: &str) -> test;
         };
 
         assert_codegen_eq!(ts, expected);
@@ -337,16 +336,16 @@ mod tests {
             test1(test: number) {}
         };";
         let expected = quote! {
-            type test;
+            pub type test;
 
             #[wasm_bindgen(constructor)]
-            fn new(test: &str) -> test;
+            pub fn new(test: &str) -> test;
 
             #[wasm_bindgen(method)]
-            fn test(this: &test, test: f64) -> String;
+            pub fn test(this: &test, test: f64) -> String;
 
              #[wasm_bindgen(method)]
-            fn test1(this: &test, test: f64);
+            pub fn test1(this: &test, test: f64);
         };
 
         assert_codegen_eq!(ts, expected);
@@ -364,19 +363,19 @@ mod tests {
             test(test: number, test1: string) {}
         };";
         let expected = quote! {
-            type test;
+            pub type test;
 
             #[wasm_bindgen(constructor)]
-            fn new(test: &str) -> test;
+            pub fn new(test: &str) -> test;
 
             #[wasm_bindgen(method, js_name = "test")]
-            fn test_0(this: &test) -> String;
+            pub fn test_0(this: &test) -> String;
 
             #[wasm_bindgen(method, js_name = "test")]
-            fn test_1(this: &test, test: f64) -> String;
+            pub fn test_1(this: &test, test: f64) -> String;
 
-             #[wasm_bindgen(method, js_name = "test")]
-            fn test_2(this: &test, test: f64, test1: &str);
+            #[wasm_bindgen(method, js_name = "test")]
+            pub fn test_2(this: &test, test: f64, test1: &str);
         };
 
         assert_codegen_eq!(ts, expected);
