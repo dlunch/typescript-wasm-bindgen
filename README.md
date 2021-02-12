@@ -32,7 +32,7 @@ fn main() {
 // lib.rs
 
 use typescript_wasm_bindgen::import_typescript_wasm_binding;
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 import_typescript_wasm_binding!("test_function");
 ```
