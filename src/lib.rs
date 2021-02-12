@@ -12,7 +12,8 @@ pub fn build_typescript_wasm_binding(typescript_path: &Path, module_name: &str) 
     let content = fs::read(typescript_path)?;
     let content_str = str::from_utf8(&content)?;
 
-    let result = generate_wasm_bindgen_bindings(content_str, module_name);
+    let dts = typescript_path.ends_with(".d.ts");
+    let result = generate_wasm_bindgen_bindings(content_str, module_name, dts);
 
     let out_dir = &PathBuf::from(env::var("OUT_DIR")?);
     let out_filename = format!("{}.rs", typescript_path.file_stem().unwrap().to_str().unwrap());

@@ -14,9 +14,7 @@ struct Codegen {
 }
 
 impl Codegen {
-    pub fn generate(content: &str, module_name: &str) -> TokenStream {
-        let dts = false;
-
+    pub fn generate(content: &str, module_name: &str, dts: bool) -> TokenStream {
         let lexer = Lexer::new(
             Syntax::Typescript(TsConfig {
                 dynamic_import: true, // TODO tsconfig?
@@ -246,8 +244,8 @@ impl Codegen {
     }
 }
 
-pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str) -> TokenStream {
-    Codegen::generate(content, module_name)
+pub fn generate_wasm_bindgen_bindings(content: &str, module_name: &str, dts: bool) -> TokenStream {
+    Codegen::generate(content, module_name, dts)
 }
 
 #[cfg(test)]
@@ -268,7 +266,7 @@ mod tests {
                     #$expected
                 }
             };
-            let generated = generate_wasm_bindgen_bindings($ts, "test");
+            let generated = generate_wasm_bindgen_bindings($ts, "test", false);
 
             assert_tokenstream_eq!(generated, expected);
         };
