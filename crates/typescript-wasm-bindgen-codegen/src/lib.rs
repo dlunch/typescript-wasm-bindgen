@@ -1,7 +1,7 @@
 use swc_common::BytePos;
 use swc_ecma_ast::{
     Accessibility, ClassDecl, ClassMember, ClassMethod, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, PropName,
-    TsKeywordTypeKind, TsType, TsTypeAnn,
+    TsEntityName, TsKeywordTypeKind, TsType,
 };
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax, TsConfig};
 
@@ -44,8 +44,8 @@ impl Codegen {
         }
     }
 
-    fn to_rust_type(&self, ts_type: &TsTypeAnn) -> TokenStream {
-        match &*ts_type.type_ann {
+    fn to_rust_type(&self, ts_type: &TsType) -> TokenStream {
+        match ts_type {
             TsType::TsKeywordType(x) => match x.kind {
                 TsKeywordTypeKind::TsVoidKeyword => quote! { () },
                 TsKeywordTypeKind::TsNumberKeyword => quote! { f64 },
@@ -57,32 +57,45 @@ impl Codegen {
         }
     }
 
-    fn to_rust_return_type(&self, ts_type: &Option<TsTypeAnn>) -> TokenStream {
-        if ts_type.is_none() {
-            TokenStream::new()
-        } else {
-            let return_type = self.to_rust_type(&ts_type.as_ref().unwrap());
+    fn to_rust_return_type(&self, ts_type: Option<&TsType>) -> TokenStream {
+        if let Some(ts_type) = ts_type {
+            let rust_type = self.to_rust_type(ts_type);
 
-            match &*ts_type.as_ref().unwrap().type_ann {
+            match ts_type {
                 TsType::TsKeywordType(x) => {
                     if x.kind == TsKeywordTypeKind::TsVoidKeyword {
                         TokenStream::new()
                     } else if x.kind == TsKeywordTypeKind::TsStringKeyword {
                         quote! { -> String }
                     } else {
-                        quote! { -> #return_type }
+                        quote! { -> #rust_type }
                     }
                 }
-                _ => quote! { -> #return_type },
+                _ => quote! { -> #rust_type },
+            }
+        } else {
+            TokenStream::new()
+        }
+    }
+
+    fn unpack_promise_type<'a>(&self, ts_type: Option<&'a TsType>) -> Option<&'a TsType> {
+        if let Some(ts_type) = ts_type {
+            if let TsType::TsTypeRef(type_ref) = ts_type {
+                if let TsEntityName::Ident(ident) = &type_ref.type_name {
+                    if ident.sym.to_string() == "Promise" {
+                        return Some(&type_ref.type_params.as_ref().unwrap().params[0]);
+                    }
+                }
             }
         }
+        None
     }
 
     fn to_rust_param(&self, param: &Param) -> TokenStream {
         match &param.pat {
             Pat::Ident(x) => {
                 let name = Ident::new(&x.sym.to_string(), Span::call_site());
-                let rust_type = self.to_rust_type(&x.type_ann.as_ref().unwrap());
+                let rust_type = self.to_rust_type(&x.type_ann.as_ref().unwrap().type_ann);
 
                 quote! { #name: #rust_type }
             }
@@ -96,11 +109,19 @@ impl Codegen {
 
     fn to_rust_fn(&self, fn_decl: &FnDecl) -> TokenStream {
         let name = Ident::new(&fn_decl.ident.sym.to_string(), Span::call_site());
-        let return_type = self.to_rust_return_type(&fn_decl.function.return_type);
 
+        let return_type = fn_decl.function.return_type.as_ref().map(|x| &*x.type_ann);
         let params = self.to_rust_params(fn_decl.function.params.iter());
 
-        quote! { pub fn #name(#params) #return_type; }
+        if let Some(return_type) = self.unpack_promise_type(return_type) {
+            let return_type = self.to_rust_return_type(Some(return_type));
+
+            quote! { pub async fn #name(#params) #return_type; }
+        } else {
+            let return_type = self.to_rust_return_type(return_type);
+
+            quote! { pub fn #name(#params) #return_type; }
+        }
     }
 
     fn to_rust_class_method_name(&self, method: &ClassMethod) -> String {
@@ -154,7 +175,7 @@ impl Codegen {
                         }
                     };
 
-                    let return_type = self.to_rust_return_type(&x.function.return_type);
+                    let return_type = self.to_rust_return_type(x.function.return_type.as_ref().map(|x| &*x.type_ann));
 
                     let mut extra_attributes = TokenStream::new();
                     let mut name = self.to_rust_class_method_name(&x);
@@ -375,6 +396,14 @@ mod tests {
             #[wasm_bindgen(method, js_name = "test")]
             pub fn test_2(this: &test, test: f64, test1: &str);
         };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_async_function() {
+        let ts = "export function test(): Promise<void>;";
+        let expected = quote! { pub async fn test(); };
 
         assert_codegen_eq!(ts, expected);
     }
