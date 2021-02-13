@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use swc_common::BytePos;
 use swc_ecma_ast::{
     Accessibility, ClassDecl, ClassMember, ClassMethod, Decl, ExportDecl, FnDecl, ModuleDecl, ModuleItem, Param, ParamOrTsParamProp, Pat, PropName,
@@ -10,6 +12,7 @@ use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Token};
 
 struct Codegen {
+    #[allow(dead_code)]
     dts: bool,
 }
 
@@ -124,11 +127,59 @@ impl Codegen {
         }
     }
 
-    fn to_rust_class_method_name(&self, method: &ClassMethod) -> String {
-        match &method.key {
-            PropName::Ident(x) => x.sym.to_string(),
-            _ => panic!(),
+    fn extract_prop_name(&self, prop_name: &PropName) -> String {
+        if let PropName::Ident(ident) = &prop_name {
+            ident.sym.to_string()
+        } else {
+            panic!("unhandled {:?}", prop_name)
         }
+    }
+
+    fn extract_pat(&self, pat: &Pat) -> String {
+        if let Pat::Ident(ident) = pat {
+            ident.sym.to_string()
+        } else {
+            panic!("unhandled {:?}", pat)
+        }
+    }
+
+    fn to_rust_class_method_name(&self, method: &ClassMethod, class: &ClassDecl) -> (String, String) {
+        let original_name = self.extract_prop_name(&method.key);
+
+        let overloads = class.class.body.iter().filter_map(|x| match x {
+            ClassMember::Method(x) => {
+                let overload_name = self.extract_prop_name(&x.key);
+                if overload_name == original_name {
+                    Some(x)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        });
+
+        let base_overload = overloads.min_by_key(|&x| x.function.params.len());
+
+        if let Some(base_overload) = base_overload {
+            // find base overload and append `with_{param}_and_{param}`..
+
+            let my_params = method.function.params.iter().map(|x| self.extract_pat(&x.pat));
+            let base_params = base_overload
+                .function
+                .params
+                .iter()
+                .map(|x| self.extract_pat(&x.pat))
+                .collect::<HashSet<_>>();
+
+            let added_params = my_params.filter(|x| !base_params.contains(x)).collect::<Vec<_>>();
+
+            if !added_params.is_empty() {
+                let name = format!("{}_with_{}", original_name, added_params.join("_and_"));
+
+                return (name, original_name);
+            }
+        }
+        (original_name.to_owned(), original_name)
     }
 
     fn to_rust_class_member(&self, class: &ClassDecl, member: &ClassMember) -> Option<TokenStream> {
@@ -160,7 +211,7 @@ impl Codegen {
                 }
             }
             ClassMember::Method(x) => {
-                if (x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public) && (x.function.body.is_some() || self.dts) {
+                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
                     // do not generate method if we are not on d.ts and has no body
 
                     let params = if !x.function.params.is_empty() {
@@ -177,28 +228,12 @@ impl Codegen {
 
                     let return_type = self.to_rust_return_type(x.function.return_type.as_ref().map(|x| &*x.type_ann));
 
-                    let mut extra_attributes = TokenStream::new();
-                    let mut name = self.to_rust_class_method_name(&x);
-                    for member in &class.class.body {
-                        if let ClassMember::Method(member_method) = member {
-                            if (member_method.function.body.is_some() || self.dts)
-                                && self.to_rust_class_method_name(&member_method) == name
-                                && x != member_method
-                            {
-                                extra_attributes = quote! {
-                                    , js_name = #name
-                                };
-
-                                name = format!("{}_{}", name, x.function.params.len());
-                            }
-                        }
-                    }
-
-                    let name = Ident::new(&name, Span::call_site());
+                    let (name, original_name) = self.to_rust_class_method_name(&x, &class);
+                    let name_ident = Ident::new(&name, Span::call_site());
 
                     Some(quote! {
-                        #[wasm_bindgen(method #extra_attributes)]
-                        pub fn #name(#params) #return_type;
+                        #[wasm_bindgen(method, js_name = #original_name)]
+                        pub fn #name_ident(#params) #return_type;
                     })
                 } else {
                     None
@@ -360,10 +395,10 @@ mod tests {
             #[wasm_bindgen(constructor)]
             pub fn new(test: &str) -> test;
 
-            #[wasm_bindgen(method)]
+            #[wasm_bindgen(method, js_name = "test")]
             pub fn test(this: &test, test: f64) -> String;
 
-             #[wasm_bindgen(method)]
+             #[wasm_bindgen(method,  js_name = "test1")]
             pub fn test1(this: &test, test: f64);
         };
 
@@ -388,13 +423,13 @@ mod tests {
             pub fn new(test: &str) -> test;
 
             #[wasm_bindgen(method, js_name = "test")]
-            pub fn test_0(this: &test) -> String;
+            pub fn test(this: &test) -> String;
 
             #[wasm_bindgen(method, js_name = "test")]
-            pub fn test_1(this: &test, test: f64) -> String;
+            pub fn test_with_test(this: &test, test: f64) -> String;
 
             #[wasm_bindgen(method, js_name = "test")]
-            pub fn test_2(this: &test, test: f64, test1: &str);
+            pub fn test_with_test_and_test1(this: &test, test: f64, test1: &str);
         };
 
         assert_codegen_eq!(ts, expected);
