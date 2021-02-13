@@ -82,16 +82,20 @@ impl Codegen {
     }
 
     fn unpack_promise_type<'a>(&self, ts_type: Option<&'a TsType>) -> Option<&'a TsType> {
-        if let Some(ts_type) = ts_type {
-            if let TsType::TsTypeRef(type_ref) = ts_type {
+        match ts_type {
+            Some(TsType::TsTypeRef(type_ref)) => {
                 if let TsEntityName::Ident(ident) = &type_ref.type_name {
                     if ident.sym.to_string() == "Promise" {
-                        return Some(&type_ref.type_params.as_ref().unwrap().params[0]);
+                        Some(&type_ref.type_params.as_ref().unwrap().params[0])
+                    } else {
+                        None
                     }
+                } else {
+                    None
                 }
             }
+            _ => None,
         }
-        None
     }
 
     fn to_rust_param(&self, param: &Param) -> TokenStream {
