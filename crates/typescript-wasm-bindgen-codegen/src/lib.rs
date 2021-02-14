@@ -81,7 +81,7 @@ impl Codegen {
         }
     }
 
-    fn unpack_promise_type<'a>(&self, ts_type: Option<&'a TsType>) -> Option<&'a TsType> {
+    fn extract_promise_inner_type<'a>(&self, ts_type: Option<&'a TsType>) -> Option<&'a TsType> {
         match ts_type {
             Some(TsType::TsTypeRef(type_ref)) => {
                 if let TsEntityName::Ident(ident) = &type_ref.type_name {
@@ -120,7 +120,7 @@ impl Codegen {
         let return_type = fn_decl.function.return_type.as_ref().map(|x| &*x.type_ann);
         let params = self.to_rust_params(fn_decl.function.params.iter());
 
-        if let Some(return_type) = self.unpack_promise_type(return_type) {
+        if let Some(return_type) = self.extract_promise_inner_type(return_type) {
             let return_type = self.to_rust_return_type(Some(return_type));
 
             quote! { pub async fn #name(#params) #return_type; }
@@ -151,7 +151,7 @@ impl Codegen {
             let name_ident = Ident::new(&name, Span::call_site());
 
             let ts_type = class_method.function.return_type.as_ref().map(|x| &*x.type_ann);
-            if let Some(return_type) = self.unpack_promise_type(ts_type) {
+            if let Some(return_type) = self.extract_promise_inner_type(ts_type) {
                 let return_type = self.to_rust_return_type(Some(return_type));
 
                 Some(quote! {
