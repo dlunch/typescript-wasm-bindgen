@@ -131,6 +131,46 @@ impl Codegen {
         }
     }
 
+    fn to_rust_class_method(&self, class_method: &ClassMethod, class: &ClassDecl) -> Option<TokenStream> {
+        let class_name = Ident::new(&class.ident.sym.to_string(), Span::call_site());
+
+        if class_method.accessibility.is_none() || class_method.accessibility.unwrap() == Accessibility::Public {
+            let params = if !class_method.function.params.is_empty() {
+                let params = self.to_rust_params(class_method.function.params.iter());
+
+                quote! {
+                    this: &#class_name, #params
+                }
+            } else {
+                quote! {
+                    this: &#class_name
+                }
+            };
+
+            let (name, original_name) = self.to_rust_class_method_name(&class_method, &class);
+            let name_ident = Ident::new(&name, Span::call_site());
+
+            let ts_type = class_method.function.return_type.as_ref().map(|x| &*x.type_ann);
+            if let Some(return_type) = self.unpack_promise_type(ts_type) {
+                let return_type = self.to_rust_return_type(Some(return_type));
+
+                Some(quote! {
+                    #[wasm_bindgen(method, js_name = #original_name)]
+                    pub async fn #name_ident(#params) #return_type;
+                })
+            } else {
+                let return_type = self.to_rust_return_type(ts_type);
+
+                Some(quote! {
+                    #[wasm_bindgen(method, js_name = #original_name)]
+                    pub fn #name_ident(#params) #return_type;
+                })
+            }
+        } else {
+            None
+        }
+    }
+
     fn extract_prop_name(&self, prop_name: &PropName) -> String {
         if let PropName::Ident(ident) = &prop_name {
             ident.sym.to_string()
@@ -214,35 +254,7 @@ impl Codegen {
                     None
                 }
             }
-            ClassMember::Method(x) => {
-                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                    // do not generate method if we are not on d.ts and has no body
-
-                    let params = if !x.function.params.is_empty() {
-                        let params = self.to_rust_params(x.function.params.iter());
-
-                        quote! {
-                            this: &#class_name, #params
-                        }
-                    } else {
-                        quote! {
-                            this: &#class_name
-                        }
-                    };
-
-                    let return_type = self.to_rust_return_type(x.function.return_type.as_ref().map(|x| &*x.type_ann));
-
-                    let (name, original_name) = self.to_rust_class_method_name(&x, &class);
-                    let name_ident = Ident::new(&name, Span::call_site());
-
-                    Some(quote! {
-                        #[wasm_bindgen(method, js_name = #original_name)]
-                        pub fn #name_ident(#params) #return_type;
-                    })
-                } else {
-                    None
-                }
-            }
+            ClassMember::Method(x) => self.to_rust_class_method(x, class),
             _ => panic!("unhandled {:?}", member),
         }
     }
@@ -443,6 +455,24 @@ mod tests {
     fn test_async_function() {
         let ts = "export function test(): Promise<void>;";
         let expected = quote! { pub async fn test(); };
+
+        assert_codegen_eq!(ts, expected);
+    }
+
+    #[test]
+    fn test_async_member_function() {
+        let ts = "export class test {
+            async test(): Promise<void>;
+        };";
+        let expected = quote! {
+            pub type test;
+
+            #[wasm_bindgen(method, js_name = "test")]
+            pub async fn test(this: &test);
+
+            #[wasm_bindgen(constructor)]
+            pub fn new() -> test;
+        };
 
         assert_codegen_eq!(ts, expected);
     }
