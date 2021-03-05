@@ -3,13 +3,19 @@ name = "typescript-wasm-bindgen"
 version = "0.1.0"
 authors = ["Inseok Lee <dlunch@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "Parse typescript file and generates wasm-bindgen javascript import on the fly"
+repository = "https://github.com/dlunch/typescript-wasm-bindgen"
+readme = "README.md"
+categories = ["wasm", "web-programming"]
+keywords = ["wasm-bindgen"]
 
 [lib]
 doctest = false
 
 [dependencies]
-typescript-wasm-bindgen-codegen = { path = "crates/typescript-wasm-bindgen-codegen" }
-typescript-wasm-bindgen-macros = { path = "crates/typescript-wasm-bindgen-macros" }
+typescript-wasm-bindgen-codegen = { path = "crates/typescript-wasm-bindgen-codegen", version = "0.1.0" }
+typescript-wasm-bindgen-macros = { path = "crates/typescript-wasm-bindgen-macros", version = "0.1.0" }
 
 [workspace]
 members = [
