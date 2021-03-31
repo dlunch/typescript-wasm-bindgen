@@ -244,15 +244,7 @@ impl Codegen {
                     pub fn new(#params) -> #class_name;
                 })
             }
-            ClassMember::ClassProp(x) => {
-                if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
-                    // TODO We have to use js_sys::Reflect
-
-                    None
-                } else {
-                    None
-                }
-            }
+            ClassMember::ClassProp(_) => None,
             ClassMember::Method(x) => self.to_rust_class_method(x, class),
             _ => panic!("unhandled {:?}", member),
         }
