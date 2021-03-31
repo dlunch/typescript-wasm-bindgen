@@ -247,7 +247,6 @@ impl Codegen {
             ClassMember::ClassProp(x) => {
                 if x.accessibility.is_none() || x.accessibility.unwrap() == Accessibility::Public {
                     // TODO We have to use js_sys::Reflect
-                    eprintln!("unhandled prop {:?}", member);
 
                     None
                 } else {
@@ -293,7 +292,6 @@ impl Codegen {
             Decl::Class(x) => Some(self.to_rust_class(x)),
             Decl::TsModule(_) => {
                 // TODO
-                eprintln!("unhandled {:?}", export);
                 None
             }
             _ => panic!("unhandled {:?}", export),
