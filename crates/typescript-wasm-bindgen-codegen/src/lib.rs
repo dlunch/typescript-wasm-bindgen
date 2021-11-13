@@ -147,7 +147,7 @@ impl Codegen {
                 }
             };
 
-            let (name, original_name) = self.to_rust_class_method_name(&class_method, &class);
+            let (name, original_name) = self.to_rust_class_method_name(class_method, class);
             let name_ident = Ident::new(&name, Span::call_site());
 
             let ts_type = class_method.function.return_type.as_ref().map(|x| &*x.type_ann);
@@ -257,7 +257,7 @@ impl Codegen {
             .class
             .body
             .iter()
-            .filter_map(|x| self.to_rust_class_member(&class, x))
+            .filter_map(|x| self.to_rust_class_member(class, x))
             .collect::<TokenStream>();
 
         let constructor = if !class.class.body.iter().any(|x| x.is_constructor()) {
