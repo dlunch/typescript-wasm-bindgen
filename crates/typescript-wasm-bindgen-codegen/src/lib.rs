@@ -101,7 +101,7 @@ impl Codegen {
     fn to_rust_param(&self, param: &Param) -> TokenStream {
         match &param.pat {
             Pat::Ident(x) => {
-                let name = Ident::new(&x.sym.to_string(), Span::call_site());
+                let name = Ident::new(&x.id.sym.to_string(), Span::call_site());
                 let rust_type = self.to_rust_type(&x.type_ann.as_ref().unwrap().type_ann);
 
                 quote! { #name: #rust_type }
@@ -181,7 +181,7 @@ impl Codegen {
 
     fn extract_pat(&self, pat: &Pat) -> String {
         if let Pat::Ident(ident) = pat {
-            ident.sym.to_string()
+            ident.id.sym.to_string()
         } else {
             panic!("unhandled {:?}", pat)
         }
