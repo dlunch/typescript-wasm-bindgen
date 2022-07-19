@@ -18,5 +18,5 @@ syn = { version = "^1.0" }
 quote = { version = "^1.0" }
 proc-macro2 = { version = "^1.0" }
 swc_common = { version = "^0.14" }
-swc_ecma_parser = { version = "^0.78" }
+swc_ecma_parser = { version = "^0.113" }
 swc_ecma_ast = { version = "^0.58" }
