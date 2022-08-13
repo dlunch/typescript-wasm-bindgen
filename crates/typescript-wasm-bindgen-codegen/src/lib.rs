@@ -19,11 +19,7 @@ struct Codegen {
 impl Codegen {
     pub fn generate(content: &str, module_name: &str, dts: bool) -> TokenStream {
         let lexer = Lexer::new(
-            Syntax::Typescript(TsConfig {
-                dynamic_import: true, // TODO tsconfig?
-                dts,
-                ..Default::default()
-            }),
+            Syntax::Typescript(TsConfig { dts, ..Default::default() }),
             Default::default(),
             StringInput::new(content, BytePos(0), BytePos(content.len() as u32)),
             None,
