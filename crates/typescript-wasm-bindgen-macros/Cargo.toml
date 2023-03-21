@@ -15,7 +15,7 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-syn = { version = "^1.0" }
+syn = { version = "^2.0" }
 proc-macro-error = { version = "^1.0" }
 
 typescript-wasm-bindgen-codegen = { path = "../typescript-wasm-bindgen-codegen", version = "0.1.1" }

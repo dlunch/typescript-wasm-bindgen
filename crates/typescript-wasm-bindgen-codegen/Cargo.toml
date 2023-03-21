@@ -14,7 +14,7 @@ keywords = ["wasm-bindgen"]
 doctest = false
 
 [dependencies]
-syn = { version = "^1.0" }
+syn = { version = "^2.0" }
 quote = { version = "^1.0" }
 proc-macro2 = { version = "^1.0" }
 swc_common = { version = "^0.27" }
